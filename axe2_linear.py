@@ -208,7 +208,7 @@ class Axe2Frame(ctk.CTkFrame):
         )
         self.method_cb.grid(row=r, column=0, padx=20, pady=(0, 14), sticky="ew"); r += 1
 
-        # Iterative tolerance
+        # ____Iterative tolerance_______
         section_label(self.left, "TOLÉRANCE  (méthodes itératives)", r); r += 1
         self.e_tol = entry(self.left, "1e-8")
         self.e_tol.insert(0, "1e-8")
@@ -224,7 +224,6 @@ class Axe2Frame(ctk.CTkFrame):
         _, self.res_lbl = result_card(self.left, r); r += 1
         _, self.rec_lbl = rec_card(self.left, r)
 
-        # Build initial grid
         self._gen_grid()
 
     # ── Matrix grid generator ─────────────────────────────────────────────────
@@ -341,10 +340,18 @@ class Axe2Frame(ctk.CTkFrame):
 
             residual = float(np.linalg.norm(A @ x - b))
             sol_str  = "\n".join(f"  x{i+1} = {xi:+.10f}" for i, xi in enumerate(x))
+            # Affichage des normes induites (exigé par l'énoncé)
+            norm_str = (f"  \u2016A\u2016\u2081 = {props['norme_1']:.4f}   "
+                        f"\u2016A\u2016\u2082 = {props['norme_2']:.4f}   "
+                        f"\u2016A\u2016\u221e = {props['norme_inf']:.4f}")
+            props_str = (f"  SPD : {'Oui' if props['is_spd'] else 'Non'}   "
+                         f"SDD : {'Oui' if props['is_sdd'] else 'Non'}   "
+                         f"\u03c1(A) = {props['rho']:.4f}")
             self.res_lbl.configure(
                 text=(f"Solution x :\n{sol_str}\n\n"
-                      f"‖Ax − b‖₂  :  {residual:.3e}\n"
-                      f"Info        :  {info}"),
+                      f"\u2016Ax \u2212 b\u2016\u2082 : {residual:.3e}\n"
+                      f"Méthode : {info}\n\n"
+                      f"Analyse matricielle :\n{norm_str}\n{props_str}"),
                 text_color=SUCCESS
             )
             self._set_recommendation(method, props, hist)
@@ -357,15 +364,24 @@ class Axe2Frame(ctk.CTkFrame):
 
     def _set_recommendation(self, method, props, hist):
         lines = []
+        # Propriétés structurelles
         if props["is_spd"]:
-            lines.append("✓  Matrice SPD détectée → Cholesky est 2× plus rapide que LU.")
+            lines.append("\u2713  Matrice SPD \u2192 Cholesky recommandé (2\u00d7 plus rapide que LU).")
         if props["is_sdd"]:
-            lines.append("✓  Matrice SDD → convergence garantie (Jacobi & Gauss-Seidel).")
+            lines.append("\u2713  Matrice SDD \u2192 convergence Jacobi & Gauss-Seidel garantie.")
         else:
-            lines.append("⚠  Matrice non-SDD → préférez Gauss ou LU pour fiabilité.")
-        lines.append(f"   ρ(A) = {props['rho']:.4f} {'< 1 → itératifs convergent.' if props['rho'] < 1 else '≥ 1 → convergence itérative non garantie.'}")
-        if hist:
-            lines.append(f"   Gauss-Seidel converge généralement 2× plus vite que Jacobi.")
+            lines.append("\u26a0  Non-SDD \u2192 préférez Gauss ou LU pour fiabilité.")
+        lines.append(f"   \u03c1(A) = {props['rho']:.4f}  "
+                     f"{'\u2192 méthodes itératives convergent.' if props['rho'] < 1 else '\u2192 convergence itérative non garantie.'}")
+        # Recommandation méthode choisie
+        if method == "Gauss (Pivot partiel)":
+            lines.append("   Gauss pivot partiel : robuste, O(n\u00b3), usage général.")
+        elif method == "Décomposition LU":
+            lines.append("   LU : factorisation réutilisable pour plusieurs vecteurs b.")
+        elif method == "Cholesky (SPD)":
+            lines.append("   Cholesky : A = L\u00b7L\u1d40, uniquement pour matrices SPD.")
+        elif method in ("Jacobi", "Gauss-Seidel") and hist:
+            lines.append(f"   {method} : {len(hist)} itérations — Gauss-Seidel converge ~2\u00d7 plus vite que Jacobi.")
         self.rec_lbl.configure(text="\n".join(lines))
 
     # ── Plot ──────────────────────────────────────────────────────────────────
